@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Generator Energy & Health Monitoring | GK Innovation</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Firebase SDKs (v8 compat) -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+    <style>
+        body { background-color: #0b0f19; color: #f3f4f6; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        .card-bg { background-color: #111827; border: 1px solid #1f2937; }
+        .sidebar-bg { background-color: #0f172a; border-right: 1px solid #1e293b; }
+    </style>
+</head>
+<body class="flex h-screen overflow-hidden">
+
+    <!-- Sidebar Navigation -->
+    <aside class="w-64 sidebar-bg flex flex-col justify-between hidden md:flex">
+        <div>
+            <div class="p-6 flex items-center space-x-3">
+                <div class="bg-teal-500 text-gray-900 font-bold px-3 py-1.5 rounded-lg text-lg">GK</div>
+                <div>
+                    <h1 class="font-bold text-teal-400">GK Innovation</h1>
+                    <p class="text-xs text-gray-400">Smart Energy System</p>
+                </div>
+            </div>
+            <nav class="mt-4 px-4 space-y-2">
+                <a href="#" class="flex items-center space-x-3 px-4 py-2.5 rounded-lg bg-teal-600/20 text-teal-400 font-medium"><i class="fa-solid fa-chart-pie"></i><span>Dashboard</span></a>
+                <a href="#sessions" class="flex items-center space-x-3 px-4 py-2.5 rounded-lg text-gray-400 hover:bg-gray-800 hover:text-white"><i class="fa-solid fa-list-check"></i><span>Session Logs</span></a>
+            </nav>
+        </div>
+        <div class="p-4 border-t border-gray-800 text-xs text-gray-500 text-center">
+            Sensor-less ML Monitoring &copy; 2026
+        </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <main class="flex-1 flex flex-col overflow-y-auto">
+        <!-- Top Header -->
+        <header class="h-16 border-b border-gray-800 bg-gray-900/50 flex items-center justify-between px-6 sticky top-0 z-10 backdrop-blur">
+            <div class="flex items-center space-x-3">
+                <h2 class="text-xl font-bold text-gray-100">Generator Energy & Health Monitoring</h2>
+                <span class="text-xs text-gray-400 hidden lg:inline">Real-time electrical parameters, fuel & CO2 prediction.</span>
+            </div>
+            <div class="flex items-center space-x-4">
+                <span class="flex items-center text-xs px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                    <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse mr-2"></span> Online
+                </span>
+                <span id="live-clock" class="text-xs text-gray-400"></span>
+            </div>
+        </header>
+
+        <!-- Dashboard Content -->
+        <div class="p-6 space-y-6 flex-1">
+
+            <!-- System Status Banner -->
+            <div id="alert-banner" class="card-bg p-4 rounded-xl flex items-center justify-between border-l-4 border-teal-500">
+                <div class="flex items-center space-x-3">
+                    <i class="fa-solid fa-circle-check text-teal-400 text-xl"></i>
+                    <div>
+                        <h4 class="font-semibold text-gray-200" id="system-status-text">System Normal — No Active Alerts</h4>
+                        <p class="text-xs text-gray-400">All generator parameters are operating within safe optimal limits.</p>
+                    </div>
+                </div>
+                <span class="text-xs font-mono bg-gray-800 px-3 py-1 rounded text-teal-300">Live Status</span>
+            </div>
+
+            <!-- Top Grid: Electrical Params, ML Predictions, Health Status -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+                <!-- Real-time Electrical Parameters -->
+                <div class="card-bg p-5 rounded-2xl lg:col-span-2 space-y-4">
+                    <div class="flex justify-between items-center">
+                        <h3 class="font-semibold text-gray-200 flex items-center"><i class="fa-solid fa-bolt text-teal-400 mr-2"></i> Real-time Electrical Parameters</h3>
+                        <span class="text-xs text-teal-400 bg-teal-500/10 px-2 py-0.5 rounded">Live Data</span>
+                    </div>
+                    <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
+                        <div class="bg-gray-900/60 p-4 rounded-xl border border-gray-800">
+                            <span class="text-xs text-gray-400 block"><i class="fa-solid fa-gauge text-blue-400 mr-1"></i> Voltage (Vrms)</span>
+                            <span id="val-vrms" class="text-2xl font-bold font-mono text-gray-100">0.00</span> <span class="text-xs text-gray-400">V</span>
+                        </div>
+                        <div class="bg-gray-900/60 p-4 rounded-xl border border-gray-800">
+                            <span class="text-xs text-gray-400 block"><i class="fa-solid fa-wave-square text-blue-400 mr-1"></i> Current (Irms)</span>
+                            <span id="val-irms" class="text-2xl font-bold font-mono text-gray-100">0.000</span> <span class="text-xs text-gray-400">A</span>
+                        </div>
+                        <div class="bg-gray-900/60 p-4 rounded-xl border border-gray-800">
+                            <span class="text-xs text-gray-400 block"><i class="fa-solid fa-bolt-lightning text-teal-400 mr-1"></i> Active Power</span>
+                            <span id="val-active" class="text-2xl font-bold font-mono text-teal-400">0.00</span> <span class="text-xs text-gray-400">W</span>
+                        </div>
+                        <div class="bg-gray-900/60 p-4 rounded-xl border border-gray-800">
+                            <span class="text-xs text-gray-400 block"><i class="fa-solid fa-plug text-purple-400 mr-1"></i> Apparent Power</span>
+                            <span id="val-apparent" class="text-2xl font-bold font-mono text-gray-100">0.00</span> <span class="text-xs text-gray-400">VA</span>
+                        </div>
+                        <div class="bg-gray-900/60 p-4 rounded-xl border border-gray-800">
+                            <span class="text-xs text-gray-400 block"><i class="fa-solid fa-chart-line text-yellow-400 mr-1"></i> Power Factor</span>
+                            <span id="val-pf" class="text-2xl font-bold font-mono text-gray-100">0.00</span> <span class="text-xs text-gray-400">PF</span>
+                        </div>
+                        <div class="bg-gray-900/60 p-4 rounded-xl border border-gray-800">
+                            <span class="text-xs text-gray-400 block"><i class="fa-solid fa-bolt text-indigo-400 mr-1"></i> Frequency</span>
+                            <span id="val-freq" class="text-2xl font-bold font-mono text-gray-100">50.00</span> <span class="text-xs text-gray-400">Hz</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right Column: ML Predictions & Health -->
+                <div class="space-y-6">
+                    <!-- ML Predictions Card -->
+                    <div class="card-bg p-5 rounded-2xl space-y-4">
+                        <h3 class="font-semibold text-gray-200 flex items-center"><i class="fa-solid fa-brain text-teal-400 mr-2"></i> ML Predictions</h3>
+                        <div class="grid grid-cols-2 gap-4 text-center">
+                            <div class="bg-gray-900/60 p-3 rounded-xl border border-gray-800">
+                                <span id="val-fuel" class="text-xl font-bold font-mono text-teal-300">0.00</span>
+                                <span class="text-xs text-gray-400 block mt-1">Fuel Usage (L/h)</span>
+                            </div>
+                            <div class="bg-gray-900/60 p-3 rounded-xl border border-gray-800">
+                                <span id="val-co2" class="text-xl font-bold font-mono text-emerald-300">0.00</span>
+                                <span class="text-xs text-gray-400 block mt-1">CO₂ Emiss. (kg/h)</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Health & Status Card -->
+                    <div class="card-bg p-5 rounded-2xl space-y-3">
+                        <h3 class="font-semibold text-gray-200 flex items-center"><i class="fa-solid fa-heart-pulse text-rose-400 mr-2"></i> Health & Status</h3>
+                        <div class="space-y-2 text-sm">
+                            <div class="flex justify-between bg-gray-900/60 px-3 py-2 rounded-lg">
+                                <span class="text-gray-400">Generator State:</span>
+                                <span id="val-state" class="font-bold text-emerald-400">OFF</span>
+                            </div>
+                            <div class="flex justify-between bg-gray-900/60 px-3 py-2 rounded-lg">
+                                <span class="text-gray-400">Health Status:</span>
+                                <span id="val-health" class="font-bold text-teal-400">HEALTHY</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Charts and Summary Section -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- Active Power Live Chart -->
+                <div class="card-bg p-5 rounded-2xl lg:col-span-2 flex flex-col">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="font-semibold text-gray-200"><i class="fa-solid fa-chart-area text-teal-400 mr-2"></i> Real-time Active Power (W)</h3>
+                        <span class="text-xs text-gray-400">Live Stream</span>
+                    </div>
+                    <div class="flex-1 relative" style="min-height: 250px;">
+                        <canvas id="powerChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Energy Metrics Summary & Report Download -->
+                <div class="card-bg p-5 rounded-2xl space-y-4 flex flex-col justify-between">
+                    <div>
+                        <h3 class="font-semibold text-gray-200 mb-3"><i class="fa-solid fa-file-invoice text-teal-400 mr-2"></i> Energy & Monthly Report</h3>
+                        <div class="space-y-3 text-sm">
+                            <div class="bg-gray-900/60 p-3 rounded-xl flex justify-between items-center">
+                                <span class="text-gray-400">Total Energy:</span>
+                                <span id="val-energy" class="font-mono font-bold text-teal-300">0.0000 kWh</span>
+                            </div>
+                            <div class="bg-gray-900/60 p-3 rounded-xl flex justify-between items-center">
+                                <span class="text-gray-400">Database Sync:</span>
+                                <span class="font-mono text-emerald-400">Firebase Active</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="space-y-2 pt-4">
+                        <button onclick="fetchSessionsAndDownloadMonthly()" class="w-full bg-teal-600 hover:bg-teal-500 text-gray-950 font-semibold py-2.5 px-4 rounded-xl transition flex items-center justify-center space-x-2 shadow-lg shadow-teal-900/30">
+                            <i class="fa-solid fa-download"></i> <span>Download Monthly Summary (CSV)</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Session Logs Table Section -->
+            <div id="sessions" class="card-bg p-5 rounded-2xl space-y-4">
+                <div class="flex justify-between items-center">
+                    <h3 class="font-semibold text-gray-200 flex items-center"><i class="fa-solid fa-table-list text-teal-400 mr-2"></i> Generator Session Logs</h3>
+                    <span class="text-xs text-gray-400">Synced from Firebase Database</span>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-sm text-gray-300">
+                        <thead class="bg-gray-900 text-xs uppercase text-gray-400 border-b border-gray-800">
+                            <tr>
+                                <th class="p-3">No</th>
+                                <th class="p-3">Start Time</th>
+                                <th class="p-3">End Time</th>
+                                <th class="p-3">Duration (min)</th>
+                                <th class="p-3">Energy (kWh)</th>
+                                <th class="p-3">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="session-table-body" class="divide-y divide-gray-800">
+                            <!-- Dynamic rows will be inserted here -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- Script Logic -->
+    <script>
+        // Clock Update
+        setInterval(() => {
+            const now = new Date();
+            document.getElementById('live-clock').innerText = now.toLocaleString();
+        }, 1000);
+
+        // Firebase Configuration (ඔයාගේ Firebase අදාළ විස්තර මෙහි යොදන්න)
+        const firebaseConfig = {
+            databaseURL: "https://generator-intelligence-default-rtdb.asia-southeast1.firebasedatabase.app/"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        // Chart.js Initialization
+        const ctx = document.getElementById('powerChart').getContext('2d');
+        const powerChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: 'Active Power (W)',
+                    data: [],
+                    borderColor: '#14b8a6',
+                    backgroundColor: 'rgba(20, 184, 166, 0.1)',
+                    borderWidth: 2,
+                    fill: true,
+                    tension: 0.3
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: { grid: { color: '#1f2937' }, ticks: { color: '#9ca3af', font: { size: 10 } } },
+                    y: { beginAtZero: true, max: 6000, grid: { color: '#1f2937' }, ticks: { color: '#9ca3af' } }
+                },
+                plugins: { legend: { display: false } }
+            }
+        });
+
+        // Firebase Realtime Listener for Live Generator Data (/Generator)
+        db.ref('Generator').on('value', (snapshot) => {
+            const data = snapshot.val();
+            if (!data) return;
+
+            const v = data.Vrms || 0;
+            const i = data.Irms || 0;
+            const p = data.ActivePower || 0;
+            const apparent = v * i; // Apparent Power Calculation
+            const pf = data.PowerFactor || 0;
+            const freq = data.Frequency || 50;
+            const energy = data.Energy_kWh || 0;
+            const fuel = data.Fuel_Consumption_L_h || 0;
+            const co2 = data.CO2_Emission_kg_h || 0;
+            const health = data.HealthStatus || "HEALTHY";
+            const state = data.State || "OFF";
+
+            // Update UI Elements
+            document.getElementById('val-vrms').innerText = v.toFixed(1);
+            document.getElementById('val-irms').innerText = i.toFixed(3);
+            document.getElementById('val-active').innerText = p.toFixed(1);
+            document.getElementById('val-apparent').innerText = apparent.toFixed(2);
+            document.getElementById('val-pf').innerText = pf.toFixed(2);
+            document.getElementById('val-freq').innerText = freq.toFixed(1);
+            document.getElementById('val-fuel').innerText = fuel.toFixed(2);
+            document.getElementById('val-co2').innerText = co2.toFixed(2);
+            document.getElementById('val-energy').innerText = energy.toFixed(4) + " kWh";
+            document.getElementById('val-state').innerText = state;
+            document.getElementById('val-health').innerText = health;
+
+            // Update Chart Data
+            const timeStr = new Date().toLocaleTimeString();
+            if (powerChart.data.labels.length > 20) {
+                powerChart.data.labels.shift();
+                powerChart.data.datasets[0].data.shift();
+            }
+            powerChart.data.labels.push(timeStr);
+            powerChart.data.datasets[0].data.push(p);
+            powerChart.update('none');
+        });
+
+        // Firebase Realtime Listener for Session Logs (/Sessions)
+        db.ref('Sessions').on('value', (snapshot) => {
+            const sessions = snapshot.val();
+            const tbody = document.getElementById('session-table-body');
+            tbody.innerHTML = "";
+
+            if (!sessions) {
+                tbody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-gray-500">No session logs recorded yet.</td></tr>`;
+                return;
+            }
+
+            let index = 1;
+            Object.keys(sessions).forEach(key => {
+                const s = sessions[key];
+                let row = `<tr class="hover:bg-gray-900/40">
+                    <td class="p-3 font-mono">${index++}</td>
+                    <td class="p-3 text-gray-300">${s.StartTime || '-'}</td>
+                    <td class="p-3 text-gray-300">${s.StopTime || '-'}</td>
+                    <td class="p-3 font-mono">${s.Duration_min ? s.Duration_min.toFixed(1) : '0.0'} min</td>
+                    <td class="p-3 font-mono text-teal-400">${s.Energy_kWh ? s.Energy_kWh.toFixed(4) : '0.0000'} kWh</td>
+                    <td class="p-3"><span class="px-2 py-1 rounded text-xs bg-emerald-500/10 text-emerald-400 font-semibold">RECORDED</span></td>
+                </tr>`;
+                tbody.insertAdjacentHTML('beforeend', row);
+            });
+        });
+
+        // Monthly Summary Report CSV Download Function
+        function fetchSessionsAndDownloadMonthly() {
+            db.ref('Sessions').once('value').then(snapshot => {
+                let data = snapshot.val();
+                if (!data) {
+                    alert("No session data found to generate monthly report!");
+                    return;
+                }
+
+                let monthlyMap = {};
+                Object.keys(data).forEach(key => {
+                    let s = data[key];
+                    if (s.StartTime) {
+                        let monthKey = s.StartTime.substring(0, 7); // උදා: "2026-09"
+                        
+                        if (!monthlyMap[monthKey]) {
+                            monthlyMap[monthKey] = {
+                                startDate: s.StartTime,
+                                endDate: s.StopTime || s.StartTime,
+                                totalEnergy: 0,
+                                totalDuration: 0,
+                                sessionCount: 0
+                            };
+                        }
+                        
+                        if (s.StartTime < monthlyMap[monthKey].startDate) {
+                            monthlyMap[monthKey].startDate = s.StartTime;
+                        }
+                        if (s.StopTime && s.StopTime > monthlyMap[monthKey].endDate) {
+                            monthlyMap[monthKey].endDate = s.StopTime;
+                        }
+                        
+                        monthlyMap[monthKey].totalEnergy += (s.Energy_kWh || 0);
+                        monthlyMap[monthKey].totalDuration += (s.Duration_min || 0);
+                        monthlyMap[monthKey].sessionCount++;
+                    }
+                });
+
+                let csvContent = "data:text/csv;charset=utf-8,";
+                csvContent += "Month,Month Start Date,Month End Date,Total Sessions,Total Duration (min),Total Energy (kWh)\n";
+
+                for (let month in monthlyMap) {
+                    let m = monthlyMap[month];
+                    csvContent += `${month},${m.startDate},${m.endDate},${m.sessionCount},${m.totalDuration.toFixed(1)},${m.totalEnergy.toFixed(4)}\n`;
+                }
+
+                let encodedUri = encodeURI(csvContent);
+                let link = document.createElement("a");
+                link.setAttribute("href", encodedUri);
+                link.setAttribute("download", "Generator_Monthly_Summary_Report.csv");
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            }).catch(error => {
+                console.error("Error generating monthly report:", error);
+            });
+        }
+    </script>
+</body>
+</html>
